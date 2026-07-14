@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Status{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-satellite-dish"></i> Status Perangkat</h2>
+    <p>Kondisi operasional setiap komponen sistem pengering biji kakao</p>
+</div>
+
+<!-- Status Grid -->
+<div class="card">
+    <div class="card-header">
+        <h3><i class="fas fa-server"></i> Daftar Perangkat</h3>
+        <button class="btn btn-secondary btn-sm" onclick="refreshStatus()"><i class="fas fa-sync-alt"></i> Refresh</button>
+    </div>
+    <div class="status-grid" id="status-grid">
+        <div class="status-item">
+            <div class="status-icon" style="background:rgba(210,105,30,0.15);color:var(--accent-cocoa);">
+                <i class="fas fa-microchip"></i>
+            </div>
+            <div class="status-info">
+                <h4>ESP32</h4>
+                <p id="st-esp32"><span class="badge {{ 'badge-on' if data.esp32_connected else 'badge-off' }}"><span class="badge-dot"></span> {{ 'Connected' if data.esp32_connected else 'Disconnected' }}</span></p>
+            </div>
+        </div>
+        <div class="status-item">
+            <div class="status-icon" style="background:rgba(96,165,250,0.15);color:var(--accent-blue);">
+                <i class="fas fa-thermometer-half"></i>
+            </div>
+            <div class="status-info">
+                <h4>Sensor DHT22</h4>
+                <p id="st-dht22"><span class="badge {{ 'badge-on' if data.esp32_connected else 'badge-off' }}"><span class="badge-dot"></span> {{ 'Normal' if data.esp32_connected else 'Tidak Terhubung' }}</span></p>
+            </div>
+        </div>
+        <div class="status-item">
+            <div class="status-icon" style="background:rgba(251,191,36,0.15);color:var(--accent-yellow);">
+                <i class="fas fa-fire"></i>
+            </div>
+            <div class="status-info">
+                <h4>Heater</h4>
+                <p id="st-heater"><span class="badge {{ 'badge-on' if data.status_heater == 'ON' else 'badge-off' }}"><span class="badge-dot"></span> {{ 'Aktif' if data.status_heater == 'ON' else 'Nonaktif' }}</span></p>
+            </div>
+        </div>
+        <div class="status-item">
+            <div class="status-icon" style="background:rgba(74,222,128,0.15);color:var(--accent-green);">
+                <i class="fas fa-fan"></i>
+            </div>
+            <div class="status-info">
+                <h4>Kipas</h4>
+                <p id="st-kipas"><span class="badge {{ 'badge-on' if data.status_kipas == 'ON' else 'badge-off' }}"><span class="badge-dot"></span> {{ 'Aktif' if data.status_kipas == 'ON' else 'Nonaktif' }}</span></p>
+            </div>
+        </div>
+        <div class="status-item">
+            <div class="status-icon" style="background:rgba(168,85,247,0.15);color:#a855f7;">
+                <i class="fas fa-network-wired"></i>
+            </div>
+            <div class="status-info">
+                <h4>MQTT Broker</h4>
+                <p id="st-mqtt"><span class="badge {{ 'badge-on' if data.mqtt_connected else 'badge-off' }}"><span class="badge-dot"></span> {{ 'Connected' if data.mqtt_connected else 'Disconnected' }}</span></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshStatus() {
+    fetch('/api/device-status').then(r => r.json()).then(d => {
+        setBadge('st-esp32', d.esp32, d.esp32 === 'Connected');
+        setBadge('st-dht22', d.sensor_dht22, d.sensor_dht22 === 'Normal');
+        setBadge('st-heater', d.heater, d.heater === 'Aktif');
+        setBadge('st-kipas', d.kipas, d.kipas === 'Aktif');
+        setBadge('st-mqtt', d.mqtt_broker, d.mqtt_broker === 'Connected');
+    });
+}
+function setBadge(id, text, isOn) {
+    document.getElementById(id).innerHTML = '<span class="badge '+(isOn?'badge-on':'badge-off')+'"><span class="badge-dot"></span> '+text+'</span>';
+}
+setInterval(refreshStatus, 5000);
+</script>
+{% endblock %}
