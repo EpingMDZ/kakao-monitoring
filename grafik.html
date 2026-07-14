@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Grafik{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-chart-line"></i> Grafik Monitoring</h2>
+    <p>Visualisasi data suhu dan kelembaban selama proses pengeringan</p>
+</div>
+
+<!-- Grafik Suhu -->
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">
+        <h3><i class="fas fa-temperature-high" style="color:var(--accent-red)"></i> Grafik Suhu</h3>
+        <span class="badge badge-on"><span class="badge-dot"></span> Real-time</span>
+    </div>
+    <div class="chart-container">
+        <canvas id="suhuChart"></canvas>
+    </div>
+</div>
+
+<!-- Grafik Kelembaban -->
+<div class="card">
+    <div class="card-header">
+        <h3><i class="fas fa-droplet" style="color:var(--accent-blue)"></i> Grafik Kelembaban</h3>
+        <span class="badge badge-on"><span class="badge-dot"></span> Real-time</span>
+    </div>
+    <div class="chart-container">
+        <canvas id="kelembabanChart"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chartOptions = {
+    responsive: true, maintainAspectRatio: false,
+    animation: { duration: 400 },
+    plugins: { legend: { labels: { color: '#a7a9be', font: { family: 'Inter' } } } },
+    scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b6d80', font: { family: 'Inter', size: 11 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b6d80', font: { family: 'Inter', size: 11 } } }
+    }
+};
+
+const suhuChart = new Chart(document.getElementById('suhuChart'), {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [
+            { label: 'Suhu Aktual (°C)', data: [], borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,0.1)', borderWidth: 2, tension: 0.3, fill: true, pointRadius: 2 },
+            { label: 'Setpoint (°C)', data: [], borderColor: '#D2691E', borderWidth: 2, borderDash: [6, 4], tension: 0, pointRadius: 0, fill: false }
+        ]
+    },
+    options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, title: { display: true, text: 'Suhu (°C)', color: '#6b6d80' } } } }
+});
+
+const kelembabanChart = new Chart(document.getElementById('kelembabanChart'), {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [
+            { label: 'Kelembaban (%)', data: [], borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.1)', borderWidth: 2, tension: 0.3, fill: true, pointRadius: 2 },
+            { label: 'Threshold 40%', data: [], borderColor: '#fbbf24', borderWidth: 2, borderDash: [6, 4], tension: 0, pointRadius: 0, fill: false }
+        ]
+    },
+    options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, title: { display: true, text: 'Kelembaban (%)', color: '#6b6d80' } } } }
+});
+
+// Load initial data
+fetch('/api/grafik-data?limit=50')
+    .then(r => r.json())
+    .then(d => {
+        suhuChart.data.labels = d.labels;
+        suhuChart.data.datasets[0].data = d.suhu;
+        suhuChart.data.datasets[1].data = d.setpoint;
+        suhuChart.update();
+        kelembabanChart.data.labels = d.labels;
+        kelembabanChart.data.datasets[0].data = d.kelembaban;
+        kelembabanChart.data.datasets[1].data = d.labels.map(() => 40);
+        kelembabanChart.update();
+    });
+
+// Real-time updates via SSE
+const MAX_POINTS = 60;
+const evtSource = new EventSource('/api/stream');
+evtSource.onmessage = function(event) {
+    const d = JSON.parse(event.data);
+    const now = new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+
+    // Update suhu chart
+    suhuChart.data.labels.push(now);
+    suhuChart.data.datasets[0].data.push(parseFloat(d.suhu_aktual));
+    suhuChart.data.datasets[1].data.push(parseFloat(d.setpoint_suhu));
+    if (suhuChart.data.labels.length > MAX_POINTS) {
+        suhuChart.data.labels.shift();
+        suhuChart.data.datasets[0].data.shift();
+        suhuChart.data.datasets[1].data.shift();
+    }
+    suhuChart.update('none');
+
+    // Update kelembaban chart
+    kelembabanChart.data.labels.push(now);
+    kelembabanChart.data.datasets[0].data.push(parseFloat(d.kelembaban));
+    kelembabanChart.data.datasets[1].data.push(40);
+    if (kelembabanChart.data.labels.length > MAX_POINTS) {
+        kelembabanChart.data.labels.shift();
+        kelembabanChart.data.datasets[0].data.shift();
+        kelembabanChart.data.datasets[1].data.shift();
+    }
+    kelembabanChart.update('none');
+};
+</script>
+{% endblock %}
